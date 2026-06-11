@@ -1,0 +1,69 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  background: #0a1628;
+  font-family: 'Inter', 'Segoe UI', sans-serif;
+}
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-image: 
+    repeating-linear-gradient(45deg, rgba(255, 107, 43, 0.02) 0px, rgba(255, 107, 43, 0.02) 1px, transparent 1px, transparent 12px),
+    repeating-linear-gradient(135deg, rgba(255, 107, 43, 0.02) 0px, rgba(255, 107, 43, 0.02) 1px, transparent 1px, transparent 12px);
+  pointer-events: none;
+  z-index: 0;
+}
+.bg-white, .bg-gray-100 {
+  background: #0d1b2a !important;
+}
+.card, .shadow, .shadow-lg {
+  background: #0d1b2a !important;
+  border: 1px solid #1b2a4a;
+  border-radius: 0px !important;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+}
+button, .rounded-lg, .rounded, .rounded-xl {
+  border-radius: 0px !important;
+}
+.btn-orange, .bg-blue-600 {
+  background: #ff6b2b !important;
+  border: none !important;
+}
+.btn-orange:hover, .bg-blue-600:hover {
+  background: #e55a1a !important;
+  box-shadow: 0 0 12px rgba(255,107,43,0.5);
+}
+.text-orange, .text-blue-600 {
+  color: #ff6b2b !important;
+}
+input, select, textarea {
+  background: #0a1628;
+  border: 1px solid #1b2a4a;
+  color: #fff;
+  border-radius: 0px;
+  padding: 10px 12px;
+}
+input:focus, select:focus, textarea:focus {
+  border-color: #ff6b2b;
+  box-shadow: 0 0 5px rgba(255,107,43,0.3);
+  outline: none;
+}
+/* Lead stage badges */
+.badge-new { background: #1b4d3e; color: white; }
+.badge-warm { background: #2a3a7a; color: white; }
+.badge-hot { background: #ff6b2b; color: white; }
+.badge-recycled { background: #7a1f1f; color: white; }
+/* Scrollbar */
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: #0a1628; }
+::-webkit-scrollbar-thumb { background: #ff6b2b; border-radius: 0px; }
+/* Hover glow for cards */
+.hover\:shadow-glow:hover {
+  box-shadow: 0 0 15px rgba(255,107,43,0.3);
+}
