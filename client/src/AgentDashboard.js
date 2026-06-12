@@ -15,16 +15,15 @@ function AgentDashboard({ user, onLogout }) {
   });
 
   const fetchContacts = async () => {
-    const url = selectedStage === 'ALL'
-   const url = selectedStage === 'ALL'
-  ? `${process.env.REACT_APP_API_URL}/api/contacts?agentId=${user.id}`
-  : `${process.env.REACT_APP_API_URL}/api/contacts?agentId=${user.id}&stage=${selectedStage}`; 
-    const res = await axios.get(url);
+    const requestUrl = selectedStage === 'ALL'
+      ? `${process.env.REACT_APP_API_URL}/api/contacts?agentId=${user.id}`
+      : `${process.env.REACT_APP_API_URL}/api/contacts?agentId=${user.id}&stage=${selectedStage}`;
+    const res = await axios.get(requestUrl);
     setContacts(res.data);
   };
 
   const fetchScripts = async () => {
-    const res = await axios.get('http://localhost:5000/api/scripts');
+    const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/scripts`);
     setScripts(res.data);
   };
 
@@ -37,9 +36,9 @@ function AgentDashboard({ user, onLogout }) {
     e.preventDefault();
     const payload = { ...formData, assigned_to: user.id, created_by: user.id };
     if (editingContact) {
-      await axios.put(`http://localhost:5000/api/contacts/${editingContact.id}`, payload);
+      await axios.put(`${process.env.REACT_APP_API_URL}/api/contacts/${editingContact.id}`, payload);
     } else {
-      await axios.post('http://localhost:5000/api/contacts', payload);
+      await axios.post(`${process.env.REACT_APP_API_URL}/api/contacts`, payload);
     }
     fetchContacts();
     setShowForm(false);
@@ -49,7 +48,7 @@ function AgentDashboard({ user, onLogout }) {
 
   const handleDelete = async (id) => {
     if (window.confirm('Delete this contact?')) {
-      await axios.delete(`http://localhost:5000/api/contacts/${id}`);
+      await axios.delete(`${process.env.REACT_APP_API_URL}/api/contacts/${id}`);
       fetchContacts();
     }
   };
@@ -61,14 +60,14 @@ function AgentDashboard({ user, onLogout }) {
   };
 
   const handleViewDetails = async (c) => {
-    const res = await axios.get(`http://localhost:5000/api/contacts/${c.id}/activities`);
+    const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/contacts/${c.id}/activities`);
     setViewingContact({ ...c, activities: res.data });
   };
 
   const makeCall = async (phone, contactId) => {
     if (!phone) return alert('No phone number');
     try {
-      const res = await axios.post('http://localhost:5000/api/outbound-call', {
+      const res = await axios.post(`${process.env.REACT_APP_API_URL}/api/outbound-call`, {
         toNumber: phone,
         contactId,
         agentId: user.id
