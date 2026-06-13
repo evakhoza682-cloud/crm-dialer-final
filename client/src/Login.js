@@ -69,9 +69,6 @@ function Login({ onLogin }) {
             Sign In
           </button>
         </form>
-        <div className="mt-6 text-center text-gray-500 text-sm">
-          Demo: admin / admin123 &nbsp;|&nbsp; agent1 / agent123
-        </div>
       </div>
     </div>
   );
