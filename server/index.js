@@ -88,6 +88,23 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
+// ============ USERS ============
+// Update a user's display name (agents can set their own display name)
+app.put('/api/users/:id/display-name', (req, res) => {
+  const { id } = req.params;
+  const { full_name } = req.body;
+  if (!full_name || !full_name.trim()) {
+    return res.status(400).json({ error: 'Display name is required' });
+  }
+  try {
+    db.prepare(`UPDATE users SET full_name = ? WHERE id = ?`).run(full_name.trim(), id);
+    const updated = db.prepare('SELECT id, username, role, full_name FROM users WHERE id = ?').get(id);
+    res.json({ success: true, user: updated });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ============ CONTACTS ============
 app.get('/api/contacts', (req, res) => {
   const { agentId, stage } = req.query;
@@ -115,7 +132,7 @@ app.post('/api/contacts', (req, res) => {
   try {
     const stmt = db.prepare(`INSERT INTO contacts (name, company, email, phone, lead_stage, deal_value, notes, assigned_to, created_by)
       VALUES (?,?,?,?,?,?,?,?,?)`);
-    const info = stmt.run(name, company, email, phone, lead_stage, deal_value, notes, assigned_to, created_by);
+    const info = stmt.run(name, company, email, phone, lead_stage, deal_value || null, notes, assigned_to, created_by);
     const newContact = db.prepare('SELECT * FROM contacts WHERE id = ?').get(info.lastInsertRowid);
     res.json(newContact);
   } catch (err) {
@@ -128,7 +145,7 @@ app.put('/api/contacts/:id', (req, res) => {
   const { name, company, email, phone, lead_stage, deal_value, notes, assigned_to } = req.body;
   try {
     db.prepare(`UPDATE contacts SET name=?, company=?, email=?, phone=?, lead_stage=?, deal_value=?, notes=?, assigned_to=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`)
-      .run(name, company, email, phone, lead_stage, deal_value, notes, assigned_to, id);
+      .run(name, company, email, phone, lead_stage, deal_value || null, notes, assigned_to, id);
     const updated = db.prepare('SELECT * FROM contacts WHERE id = ?').get(id);
     res.json(updated);
   } catch (err) {
