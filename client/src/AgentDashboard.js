@@ -4,10 +4,10 @@ import axios from 'axios';
 const API = process.env.REACT_APP_API_URL;
 
 const STAGE_STYLES = {
-  'NEW LEADS':      { bg: '#1a3a2a', badge: '#2d6a4f', text: '#52b788' },
-  'WARM LEADS':     { bg: '#1a2a4a', badge: '#1d3557', text: '#4895ef' },
-  'HOT LEADS':      { bg: '#3a1a0a', badge: '#c1440e', text: '#ff6b2b' },
-  'RECYCLED LEADS': { bg: '#2a1a1a', badge: '#6b1f1f', text: '#e07070' },
+  'NEW LEADS':      { glow: '#52b788', badgeBg: 'rgba(82,183,136,0.18)', badgeBorder: 'rgba(82,183,136,0.4)', text: '#52b788' },
+  'WARM LEADS':     { glow: '#4895ef', badgeBg: 'rgba(72,149,239,0.18)', badgeBorder: 'rgba(72,149,239,0.4)', text: '#4895ef' },
+  'HOT LEADS':      { glow: '#ff6b2b', badgeBg: 'rgba(255,107,43,0.18)', badgeBorder: 'rgba(255,107,43,0.4)', text: '#ff8c4b' },
+  'RECYCLED LEADS': { glow: '#e07070', badgeBg: 'rgba(224,112,112,0.18)', badgeBorder: 'rgba(224,112,112,0.4)', text: '#e07070' },
 };
 
 const icons = {
@@ -21,6 +21,11 @@ const icons = {
     <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
       <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
       <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+    </svg>
+  ),
+  notes: (
+    <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+      <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
     </svg>
   ),
   scripts: (
@@ -73,7 +78,23 @@ const icons = {
       <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
     </svg>
   ),
+  noteSmall: (
+    <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+      <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+    </svg>
+  ),
 };
+
+// ── Glassmorphism style helpers ──
+const glass = (extra = {}) => ({
+  background: 'rgba(15, 25, 45, 0.55)',
+  backdropFilter: 'blur(16px)',
+  WebkitBackdropFilter: 'blur(16px)',
+  border: '1px solid rgba(255,255,255,0.08)',
+  borderRadius: '16px',
+  boxShadow: '0 8px 32px rgba(0,0,0,0.35)',
+  ...extra,
+});
 
 function AgentDashboard({ user, onLogout }) {
   const [contacts, setContacts] = useState([]);
@@ -85,13 +106,26 @@ function AgentDashboard({ user, onLogout }) {
   const [selectedStage, setSelectedStage] = useState('ALL');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
+  // Notes
+  const [allNotes, setAllNotes] = useState([]);
+  const [notesContact, setNotesContact] = useState(null);
+  const [contactNotes, setContactNotes] = useState([]);
+  const [newNote, setNewNote] = useState('');
+  const [savingNote, setSavingNote] = useState(false);
+
   const leadStages = ['NEW LEADS', 'WARM LEADS', 'HOT LEADS', 'RECYCLED LEADS'];
 
   const emptyForm = { name: '', company: '', email: '', phone: '', lead_stage: 'NEW LEADS', notes: '' };
   const [formData, setFormData] = useState(emptyForm);
+
   const [displayName, setDisplayName] = useState(user.full_name || user.username);
   const [savingName, setSavingName] = useState(false);
   const [nameSaved, setNameSaved] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [savingPassword, setSavingPassword] = useState(false);
+  const [passwordMessage, setPasswordMessage] = useState(null);
 
   const fetchContacts = useCallback(async () => {
     try {
@@ -110,8 +144,16 @@ function AgentDashboard({ user, onLogout }) {
     } catch (err) { console.error('Failed to fetch scripts:', err); }
   }, []);
 
+  const fetchAllNotes = useCallback(async () => {
+    try {
+      const res = await axios.get(`${API}/api/notes?agentId=${user.id}`);
+      setAllNotes(res.data);
+    } catch (err) { console.error('Failed to fetch notes:', err); }
+  }, [user.id]);
+
   useEffect(() => { fetchContacts(); }, [fetchContacts]);
   useEffect(() => { fetchScripts(); }, [fetchScripts]);
+  useEffect(() => { if (activeNav === 'notes') fetchAllNotes(); }, [activeNav, fetchAllNotes]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -160,6 +202,37 @@ function AgentDashboard({ user, onLogout }) {
     } catch (err) { alert('Call error. Check server.'); }
   };
 
+  // ── Notes handlers ──
+  const openNotes = async (contact) => {
+    setNotesContact(contact);
+    setNewNote('');
+    try {
+      const res = await axios.get(`${API}/api/contacts/${contact.id}/notes`);
+      setContactNotes(res.data);
+    } catch (err) { setContactNotes([]); }
+  };
+
+  const handleAddNote = async () => {
+    if (!newNote.trim() || !notesContact) return;
+    setSavingNote(true);
+    try {
+      const res = await axios.post(`${API}/api/contacts/${notesContact.id}/notes`, {
+        user_id: user.id, content: newNote.trim(),
+      });
+      setContactNotes([res.data, ...contactNotes]);
+      setNewNote('');
+    } catch (err) { alert('Failed to save note.'); }
+    finally { setSavingNote(false); }
+  };
+
+  const handleDeleteNote = async (noteId) => {
+    try {
+      await axios.delete(`${API}/api/notes/${noteId}`);
+      setContactNotes(contactNotes.filter(n => n.id !== noteId));
+      setAllNotes(allNotes.filter(n => n.id !== noteId));
+    } catch (err) { alert('Failed to delete note.'); }
+  };
+
   const formatDuration = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 
   const handleSaveDisplayName = async () => {
@@ -179,9 +252,41 @@ function AgentDashboard({ user, onLogout }) {
     }
   };
 
+  const handleChangePassword = async () => {
+    setPasswordMessage(null);
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      setPasswordMessage({ type: 'error', text: 'Please fill in all password fields.' });
+      return;
+    }
+    if (newPassword.length < 6) {
+      setPasswordMessage({ type: 'error', text: 'New password must be at least 6 characters.' });
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordMessage({ type: 'error', text: 'New passwords do not match.' });
+      return;
+    }
+    setSavingPassword(true);
+    try {
+      await axios.put(`${API}/api/users/${user.id}/password`, {
+        current_password: currentPassword,
+        new_password: newPassword,
+      });
+      setPasswordMessage({ type: 'success', text: '✓ Password updated successfully.' });
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (err) {
+      const msg = err.response?.data?.error || 'Failed to update password.';
+      setPasswordMessage({ type: 'error', text: msg });
+    } finally {
+      setSavingPassword(false);
+    }
+  };
+
   const inputStyle = {
-    width: '100%', padding: '10px 14px', marginBottom: '14px',
-    background: '#0f1f35', border: '1px solid #1e3a5f', borderRadius: '8px',
+    width: '100%', padding: '12px 16px', marginBottom: '14px',
+    background: 'rgba(8, 16, 32, 0.6)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px',
     color: '#fff', fontSize: '14px', outline: 'none', boxSizing: 'border-box',
   };
 
@@ -190,91 +295,121 @@ function AgentDashboard({ user, onLogout }) {
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: icons.dashboard },
     { id: 'leads', label: 'My Leads', icon: icons.leads },
+    { id: 'notes', label: 'Notes', icon: icons.notes },
     { id: 'scripts', label: 'Scripts', icon: icons.scripts },
     { id: 'settings', label: 'Settings', icon: icons.settings },
   ];
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: '#060f1e', fontFamily: "'Inter', -apple-system, sans-serif", position: 'relative', overflow: 'hidden' }}>
+    <div style={{ display: 'flex', minHeight: '100vh', background: '#070d1a', fontFamily: "'Inter', -apple-system, sans-serif", position: 'relative', overflow: 'hidden' }}>
       <style>{`
+        @keyframes floatOrb {
+          0%   { transform: translate(0, 0) scale(1); }
+          33%  { transform: translate(60px, -50px) scale(1.08); }
+          66%  { transform: translate(-40px, 40px) scale(0.95); }
+          100% { transform: translate(0, 0) scale(1); }
+        }
         @keyframes floatShape {
           0%   { transform: translate(0, 0) rotate(0deg); }
-          50%  { transform: translate(30px, -40px) rotate(180deg); }
+          50%  { transform: translate(40px, -50px) rotate(180deg); }
           100% { transform: translate(0, 0) rotate(360deg); }
         }
         @keyframes twinkle {
-          0%, 100% { opacity: 0.15; }
-          50% { opacity: 0.6; }
+          0%, 100% { opacity: 0.2; transform: scale(1); }
+          50% { opacity: 0.9; transform: scale(1.4); }
+        }
+        @keyframes pulseGlow {
+          0%, 100% { opacity: 0.35; }
+          50% { opacity: 0.65; }
+        }
+        .bg-orb {
+          position: absolute;
+          border-radius: 50%;
+          filter: blur(60px);
+          pointer-events: none;
+          animation: floatOrb 30s ease-in-out infinite, pulseGlow 8s ease-in-out infinite;
         }
         .bg-shape {
           position: absolute;
-          border: 1px solid rgba(255,107,43,0.12);
+          border: 1px solid rgba(255,107,43,0.18);
           pointer-events: none;
         }
         .bg-star {
           position: absolute;
-          background: #4895ef;
+          background: #ffffff;
           border-radius: 50%;
           pointer-events: none;
           animation: twinkle 4s ease-in-out infinite;
         }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,107,43,0.3); border-radius: 4px; }
       `}</style>
 
-      {/* Animated background shapes */}
+      {/* Animated vibrant background */}
       <div style={{ position: 'fixed', inset: 0, zIndex: 0, overflow: 'hidden' }}>
-        <div className="bg-shape" style={{ width: '180px', height: '180px', top: '8%', left: '15%', borderRadius: '24px', animation: 'floatShape 28s ease-in-out infinite' }} />
-        <div className="bg-shape" style={{ width: '120px', height: '120px', top: '60%', left: '75%', borderRadius: '50%', animation: 'floatShape 22s ease-in-out infinite reverse' }} />
+        <div className="bg-orb" style={{ width: '500px', height: '500px', top: '-10%', left: '-5%', background: 'radial-gradient(circle, rgba(72,149,239,0.35), transparent 70%)' }} />
+        <div className="bg-orb" style={{ width: '600px', height: '600px', top: '40%', left: '60%', background: 'radial-gradient(circle, rgba(255,107,43,0.3), transparent 70%)', animationDelay: '-8s' }} />
+        <div className="bg-orb" style={{ width: '450px', height: '450px', top: '70%', left: '10%', background: 'radial-gradient(circle, rgba(82,183,136,0.25), transparent 70%)', animationDelay: '-15s' }} />
+        <div className="bg-orb" style={{ width: '350px', height: '350px', top: '5%', left: '75%', background: 'radial-gradient(circle, rgba(255,107,43,0.22), transparent 70%)', animationDelay: '-22s' }} />
+
+        <div className="bg-shape" style={{ width: '180px', height: '180px', top: '12%', left: '20%', borderRadius: '24px', animation: 'floatShape 28s ease-in-out infinite' }} />
+        <div className="bg-shape" style={{ width: '120px', height: '120px', top: '60%', left: '78%', borderRadius: '50%', border: '1px solid rgba(72,149,239,0.2)', animation: 'floatShape 22s ease-in-out infinite reverse' }} />
         <div className="bg-shape" style={{ width: '90px', height: '90px', top: '35%', left: '50%', transform: 'rotate(45deg)', animation: 'floatShape 35s ease-in-out infinite' }} />
-        <div className="bg-shape" style={{ width: '150px', height: '150px', top: '78%', left: '20%', borderRadius: '16px', animation: 'floatShape 26s ease-in-out infinite reverse' }} />
-        <div className="bg-shape" style={{ width: '60px', height: '60px', top: '15%', left: '85%', borderRadius: '50%', animation: 'floatShape 18s ease-in-out infinite' }} />
-        {[...Array(25)].map((_, i) => (
+        <div className="bg-shape" style={{ width: '150px', height: '150px', top: '80%', left: '30%', borderRadius: '16px', border: '1px solid rgba(82,183,136,0.2)', animation: 'floatShape 26s ease-in-out infinite reverse' }} />
+        <div className="bg-shape" style={{ width: '70px', height: '70px', top: '18%', left: '88%', borderRadius: '50%', animation: 'floatShape 18s ease-in-out infinite' }} />
+
+        {[...Array(40)].map((_, i) => (
           <div
             key={i}
             className="bg-star"
             style={{
-              width: `${2 + (i % 3)}px`, height: `${2 + (i % 3)}px`,
-              top: `${(i * 17) % 100}%`, left: `${(i * 37) % 100}%`,
-              animationDelay: `${(i % 5) * 0.8}s`,
+              width: `${1.5 + (i % 3)}px`, height: `${1.5 + (i % 3)}px`,
+              top: `${(i * 13) % 100}%`, left: `${(i * 29) % 100}%`,
+              animationDelay: `${(i % 6) * 0.7}s`,
             }}
           />
         ))}
       </div>
 
-
       {/* ── Sidebar ── */}
       <aside style={{
-        width: sidebarCollapsed ? '72px' : '240px',
-        background: '#0a1628',
-        borderRight: '1px solid #1e3a5f',
+        width: sidebarCollapsed ? '76px' : '250px',
+        ...glass({ borderRadius: 0, borderRight: '1px solid rgba(255,255,255,0.08)', borderTop: 'none', borderBottom: 'none', borderLeft: 'none' }),
         display: 'flex', flexDirection: 'column',
         transition: 'width 0.25s ease',
         flexShrink: 0, position: 'relative', zIndex: 10,
       }}>
-        {/* Logo */}
-        <div style={{ padding: '24px 16px 20px', borderBottom: '1px solid #1e3a5f', display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <img src="/logo.png" alt="Logo" style={{ width: '40px', height: '40px', borderRadius: '8px', objectFit: 'contain', flexShrink: 0 }} />
+        <div style={{ padding: '24px 16px 20px', borderBottom: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ width: '44px', height: '44px', borderRadius: '12px', overflow: 'hidden', flexShrink: 0, boxShadow: '0 0 18px rgba(255,107,43,0.4)', border: '1px solid rgba(255,107,43,0.3)' }}>
+            <img src="/logo.png" alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          </div>
           {!sidebarCollapsed && (
             <div>
               <div style={{ color: '#fff', fontWeight: '700', fontSize: '13px', lineHeight: 1.2 }}>Stritgrad Market</div>
-              <div style={{ color: '#4895ef', fontSize: '11px', fontWeight: '500' }}>Agent Portal</div>
+              <div style={{
+                background: 'linear-gradient(90deg, #4895ef, #ff6b2b)',
+                WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
+                fontSize: '11px', fontWeight: '700', letterSpacing: '0.5px',
+              }}>AGENT PORTAL</div>
             </div>
           )}
         </div>
 
-        {/* Nav */}
-        <nav style={{ flex: 1, padding: '16px 8px' }}>
+        <nav style={{ flex: 1, padding: '16px 10px' }}>
           {navItems.map(item => (
             <button
               key={item.id}
               onClick={() => setActiveNav(item.id)}
               style={{
                 width: '100%', display: 'flex', alignItems: 'center', gap: '12px',
-                padding: '11px 12px', borderRadius: '8px', border: 'none', cursor: 'pointer',
-                marginBottom: '4px', transition: 'all 0.15s',
-                background: activeNav === item.id ? '#ff6b2b' : 'transparent',
-                color: activeNav === item.id ? '#fff' : '#8baac8',
-                fontWeight: activeNav === item.id ? '600' : '400',
+                padding: '12px 14px', borderRadius: '12px', border: 'none', cursor: 'pointer',
+                marginBottom: '6px', transition: 'all 0.2s',
+                background: activeNav === item.id ? 'linear-gradient(135deg, #ff6b2b, #e0531a)' : 'transparent',
+                color: activeNav === item.id ? '#fff' : '#9bb3d1',
+                fontWeight: activeNav === item.id ? '700' : '500',
                 fontSize: '14px',
+                boxShadow: activeNav === item.id ? '0 4px 20px rgba(255,107,43,0.4)' : 'none',
               }}
             >
               <span style={{ flexShrink: 0 }}>{item.icon}</span>
@@ -283,20 +418,19 @@ function AgentDashboard({ user, onLogout }) {
           ))}
         </nav>
 
-        {/* User + Logout */}
-        <div style={{ padding: '16px 8px', borderTop: '1px solid #1e3a5f' }}>
+        <div style={{ padding: '16px 10px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
           {!sidebarCollapsed && (
-            <div style={{ padding: '8px 12px', marginBottom: '8px' }}>
-              <div style={{ color: '#fff', fontWeight: '600', fontSize: '13px' }}>{user.full_name || user.username}</div>
-              <div style={{ color: '#4895ef', fontSize: '11px' }}>Agent</div>
+            <div style={{ padding: '10px 14px', marginBottom: '8px', borderRadius: '12px', background: 'rgba(72,149,239,0.08)' }}>
+              <div style={{ color: '#fff', fontWeight: '700', fontSize: '13px' }}>{user.full_name || user.username}</div>
+              <div style={{ color: '#4895ef', fontSize: '11px', fontWeight: '600' }}>● Agent Online</div>
             </div>
           )}
           <button
             onClick={onLogout}
             style={{
               width: '100%', display: 'flex', alignItems: 'center', gap: '12px',
-              padding: '11px 12px', borderRadius: '8px', border: 'none', cursor: 'pointer',
-              background: 'transparent', color: '#e07070', fontSize: '14px', transition: 'all 0.15s',
+              padding: '12px 14px', borderRadius: '12px', border: '1px solid rgba(224,112,112,0.2)', cursor: 'pointer',
+              background: 'rgba(224,112,112,0.08)', color: '#e07070', fontSize: '14px', fontWeight: '600',
             }}
           >
             <span style={{ flexShrink: 0 }}>{icons.logout}</span>
@@ -308,55 +442,58 @@ function AgentDashboard({ user, onLogout }) {
       {/* ── Main ── */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative', zIndex: 1 }}>
 
-        {/* Top bar */}
         <header style={{
-          background: '#0a1628', borderBottom: '1px solid #1e3a5f',
-          padding: '0 28px', height: '64px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          ...glass({ borderRadius: 0, borderTop: 'none', borderLeft: 'none', borderRight: 'none' }),
+          padding: '0 28px', height: '68px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
             <button
               onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-              style={{ background: 'none', border: 'none', color: '#8baac8', cursor: 'pointer', padding: '4px' }}
+              style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', color: '#9bb3d1', cursor: 'pointer', padding: '8px' }}
             >
-              <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                 <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
               </svg>
             </button>
             <div>
-              <h1 style={{ color: '#fff', fontSize: '20px', fontWeight: '700', margin: 0 }}>Agent Dashboard</h1>
-              <p style={{ color: '#8baac8', fontSize: '12px', margin: 0 }}>Stritgrad Market Solutions · Call Center CRM</p>
+              <h1 style={{
+                background: 'linear-gradient(90deg, #ffffff, #9bb3d1)',
+                WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
+                fontSize: '21px', fontWeight: '800', margin: 0, letterSpacing: '-0.3px',
+              }}>Agent Dashboard</h1>
+              <p style={{ color: '#6b85a8', fontSize: '12px', margin: 0, fontWeight: '500' }}>Stritgrad Market Solutions · Call Center CRM</p>
             </div>
           </div>
           <button
             onClick={() => setShowForm(true)}
             style={{
               display: 'flex', alignItems: 'center', gap: '8px',
-              padding: '10px 20px', background: '#ff6b2b', color: '#fff',
-              border: 'none', borderRadius: '8px', cursor: 'pointer',
-              fontWeight: '600', fontSize: '14px',
+              padding: '12px 22px', background: 'linear-gradient(135deg, #ff6b2b, #e0531a)', color: '#fff',
+              border: 'none', borderRadius: '12px', cursor: 'pointer',
+              fontWeight: '700', fontSize: '14px',
+              boxShadow: '0 6px 20px rgba(255,107,43,0.4)',
             }}
           >
             {icons.plus} Add Lead
           </button>
         </header>
 
-        {/* Content */}
         <main style={{ flex: 1, overflowY: 'auto', padding: '28px' }}>
 
-          {/* Scripts panel */}
+          {/* ── Scripts ── */}
           {activeNav === 'scripts' && (
             <div>
-              <h2 style={{ color: '#fff', fontSize: '18px', fontWeight: '700', marginBottom: '20px' }}>Call Scripts</h2>
+              <h2 style={{ color: '#fff', fontSize: '20px', fontWeight: '800', marginBottom: '20px', letterSpacing: '-0.3px' }}>Call Scripts</h2>
               {scripts.length === 0 ? (
-                <div style={{ color: '#8baac8', padding: '40px', textAlign: 'center', background: '#0a1628', borderRadius: '12px', border: '1px solid #1e3a5f' }}>
+                <div style={{ ...glass(), color: '#6b85a8', padding: '50px', textAlign: 'center' }}>
                   No scripts available yet. Ask your admin to add some.
                 </div>
               ) : (
                 <div style={{ display: 'grid', gap: '16px', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))' }}>
                   {scripts.map(s => (
-                    <div key={s.id} style={{ background: '#0a1628', border: '1px solid #1e3a5f', borderRadius: '12px', padding: '20px', borderLeft: '4px solid #ff6b2b' }}>
+                    <div key={s.id} style={{ ...glass(), padding: '22px', borderLeft: '3px solid #ff6b2b' }}>
                       <h3 style={{ color: '#fff', fontWeight: '700', marginBottom: '10px' }}>{s.title}</h3>
-                      <p style={{ color: '#8baac8', fontSize: '14px', lineHeight: 1.6 }}>{s.content}</p>
+                      <p style={{ color: '#9bb3d1', fontSize: '14px', lineHeight: 1.6 }}>{s.content}</p>
                     </div>
                   ))}
                 </div>
@@ -364,21 +501,51 @@ function AgentDashboard({ user, onLogout }) {
             </div>
           )}
 
-          {/* Dashboard / Leads view */}
+          {/* ── Notes Tab ── */}
+          {activeNav === 'notes' && (
+            <div>
+              <h2 style={{ color: '#fff', fontSize: '20px', fontWeight: '800', marginBottom: '20px', letterSpacing: '-0.3px' }}>All Notes</h2>
+              {allNotes.length === 0 ? (
+                <div style={{ ...glass(), color: '#6b85a8', padding: '50px', textAlign: 'center' }}>
+                  No notes yet. Add notes to leads from your dashboard.
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {allNotes.map(note => (
+                    <div key={note.id} style={{ ...glass(), padding: '18px 22px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '16px' }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+                          <span style={{ color: '#ff8c4b', fontWeight: '700', fontSize: '14px' }}>{note.contact_name}</span>
+                          <span style={{ color: '#6b85a8', fontSize: '12px' }}>{note.contact_phone}</span>
+                        </div>
+                        <p style={{ color: '#e2e8f0', fontSize: '14px', marginBottom: '8px', lineHeight: 1.5 }}>{note.content}</p>
+                        <span style={{ color: '#6b85a8', fontSize: '11px' }}>{new Date(note.created_at).toLocaleString()}</span>
+                      </div>
+                      <button onClick={() => handleDeleteNote(note.id)} style={{ background: 'rgba(224,112,112,0.1)', border: '1px solid rgba(224,112,112,0.2)', borderRadius: '8px', padding: '8px', color: '#e07070', cursor: 'pointer', flexShrink: 0 }}>
+                        {icons.trash}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Dashboard / Leads ── */}
           {(activeNav === 'dashboard' || activeNav === 'leads') && (
             <>
-              {/* Stage filter tabs */}
-              <div style={{ display: 'flex', gap: '8px', marginBottom: '24px', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: '10px', marginBottom: '24px', flexWrap: 'wrap' }}>
                 {['ALL', ...leadStages].map(stage => (
                   <button
                     key={stage}
                     onClick={() => setSelectedStage(stage)}
                     style={{
-                      padding: '8px 18px', borderRadius: '8px', cursor: 'pointer',
-                      fontWeight: '600', fontSize: '13px', transition: 'all 0.15s',
-                      background: selectedStage === stage ? '#ff6b2b' : '#0a1628',
-                      color: selectedStage === stage ? '#fff' : '#8baac8',
-                      border: selectedStage === stage ? '1px solid #ff6b2b' : '1px solid #1e3a5f',
+                      padding: '10px 20px', borderRadius: '12px', cursor: 'pointer',
+                      fontWeight: '700', fontSize: '13px', transition: 'all 0.2s', letterSpacing: '0.3px',
+                      background: selectedStage === stage ? 'linear-gradient(135deg, #ff6b2b, #e0531a)' : 'rgba(255,255,255,0.04)',
+                      color: selectedStage === stage ? '#fff' : '#9bb3d1',
+                      border: selectedStage === stage ? 'none' : '1px solid rgba(255,255,255,0.08)',
+                      boxShadow: selectedStage === stage ? '0 4px 16px rgba(255,107,43,0.35)' : 'none',
                     }}
                   >
                     {stage === 'ALL' ? 'ALL LEADS' : stage}
@@ -386,64 +553,62 @@ function AgentDashboard({ user, onLogout }) {
                 ))}
               </div>
 
-              {/* Stats row */}
+              {/* Stats */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '28px' }}>
                 {leadStages.map(stage => {
                   const count = contacts.filter(c => c.lead_stage === stage).length;
                   const style = STAGE_STYLES[stage];
                   return (
-                    <div key={stage} style={{ background: style.bg, border: `1px solid ${style.badge}`, borderRadius: '12px', padding: '18px 20px' }}>
-                      <div style={{ color: style.text, fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>{stage}</div>
-                      <div style={{ color: '#fff', fontSize: '28px', fontWeight: '800' }}>{count}</div>
+                    <div key={stage} style={{ ...glass(), padding: '20px 22px', position: 'relative', overflow: 'hidden' }}>
+                      <div style={{ position: 'absolute', top: '-30px', right: '-30px', width: '90px', height: '90px', borderRadius: '50%', background: style.glow, opacity: 0.15, filter: 'blur(20px)' }} />
+                      <div style={{ color: style.text, fontSize: '11px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: '10px' }}>{stage}</div>
+                      <div style={{ color: '#fff', fontSize: '32px', fontWeight: '800' }}>{count}</div>
                     </div>
                   );
                 })}
               </div>
 
-              {/* Contacts grid */}
+              {/* Leads grid */}
               {filteredContacts.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '60px', color: '#8baac8', background: '#0a1628', borderRadius: '12px', border: '1px solid #1e3a5f' }}>
+                <div style={{ ...glass(), textAlign: 'center', padding: '60px', color: '#6b85a8' }}>
                   No leads in this category yet.
                 </div>
               ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '20px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(310px, 1fr))', gap: '20px' }}>
                   {filteredContacts.map(c => {
                     const stageStyle = STAGE_STYLES[c.lead_stage] || STAGE_STYLES['NEW LEADS'];
                     return (
                       <div key={c.id} style={{
-                        background: '#0a1628', border: '1px solid #1e3a5f', borderRadius: '14px',
-                        padding: '20px', transition: 'all 0.2s', position: 'relative',
-                        borderTop: `3px solid ${stageStyle.badge}`,
+                        ...glass({ padding: '22px', position: 'relative', overflow: 'hidden', transition: 'transform 0.2s' }),
                       }}>
-                        {/* Stage badge */}
+                        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '3px', background: `linear-gradient(90deg, ${stageStyle.glow}, transparent)` }} />
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '14px' }}>
                           <div>
                             <h3 style={{ color: '#fff', fontWeight: '700', fontSize: '16px', margin: '0 0 4px' }}>{c.name}</h3>
-                            <p style={{ color: '#8baac8', fontSize: '13px', margin: 0 }}>{c.company}</p>
+                            <p style={{ color: '#6b85a8', fontSize: '13px', margin: 0 }}>{c.company}</p>
                           </div>
                           <span style={{
-                            background: stageStyle.badge, color: stageStyle.text,
-                            fontSize: '10px', fontWeight: '700', padding: '4px 10px',
+                            background: stageStyle.badgeBg, color: stageStyle.text, border: `1px solid ${stageStyle.badgeBorder}`,
+                            fontSize: '10px', fontWeight: '800', padding: '5px 11px',
                             borderRadius: '20px', textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap',
                           }}>
                             {c.lead_stage}
                           </span>
                         </div>
 
-                        {/* Contact info */}
-                        <div style={{ marginBottom: '16px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                          <div style={{ color: '#8baac8', fontSize: '13px' }}>📞 {c.phone}</div>
-                          <div style={{ color: '#8baac8', fontSize: '13px' }}>✉️ {c.email}</div>
+                        <div style={{ marginBottom: '18px', display: 'flex', flexDirection: 'column', gap: '7px' }}>
+                          <div style={{ color: '#9bb3d1', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px' }}>📞 {c.phone}</div>
+                          <div style={{ color: '#9bb3d1', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px' }}>✉️ {c.email}</div>
                         </div>
 
-                        {/* Action buttons */}
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                           <button
                             onClick={() => makeCall(c.phone, c.id)}
                             style={{
                               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-                              padding: '9px', background: '#ff6b2b', color: '#fff',
-                              border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '13px',
+                              padding: '10px', background: 'linear-gradient(135deg, #ff6b2b, #e0531a)', color: '#fff',
+                              border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: '700', fontSize: '13px',
+                              boxShadow: '0 4px 14px rgba(255,107,43,0.35)',
                             }}
                           >
                             {icons.call} Call
@@ -452,18 +617,28 @@ function AgentDashboard({ user, onLogout }) {
                             onClick={() => handleViewDetails(c)}
                             style={{
                               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-                              padding: '9px', background: '#0f1f35', color: '#4895ef',
-                              border: '1px solid #1e3a5f', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '13px',
+                              padding: '10px', background: 'rgba(72,149,239,0.1)', color: '#4895ef',
+                              border: '1px solid rgba(72,149,239,0.25)', borderRadius: '10px', cursor: 'pointer', fontWeight: '700', fontSize: '13px',
                             }}
                           >
                             {icons.view} View
                           </button>
                           <button
+                            onClick={() => openNotes(c)}
+                            style={{
+                              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                              padding: '10px', background: 'rgba(255,255,255,0.04)', color: '#e2e8f0',
+                              border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', cursor: 'pointer', fontWeight: '600', fontSize: '13px',
+                            }}
+                          >
+                            {icons.noteSmall} Notes
+                          </button>
+                          <button
                             onClick={() => handleEdit(c)}
                             style={{
                               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-                              padding: '9px', background: '#0f1f35', color: '#8baac8',
-                              border: '1px solid #1e3a5f', borderRadius: '8px', cursor: 'pointer', fontSize: '13px',
+                              padding: '10px', background: 'rgba(255,255,255,0.04)', color: '#9bb3d1',
+                              border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', cursor: 'pointer', fontSize: '13px',
                             }}
                           >
                             {icons.edit} Edit
@@ -471,9 +646,10 @@ function AgentDashboard({ user, onLogout }) {
                           <button
                             onClick={() => handleDelete(c.id)}
                             style={{
+                              gridColumn: 'span 2',
                               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-                              padding: '9px', background: '#1a0a0a', color: '#e07070',
-                              border: '1px solid #3a1a1a', borderRadius: '8px', cursor: 'pointer', fontSize: '13px',
+                              padding: '10px', background: 'rgba(224,112,112,0.08)', color: '#e07070',
+                              border: '1px solid rgba(224,112,112,0.2)', borderRadius: '10px', cursor: 'pointer', fontSize: '13px', fontWeight: '600',
                             }}
                           >
                             {icons.trash} Delete
@@ -487,11 +663,13 @@ function AgentDashboard({ user, onLogout }) {
             </>
           )}
 
+          {/* ── Settings ── */}
           {activeNav === 'settings' && (
-            <div style={{ maxWidth: '480px' }}>
-              <h2 style={{ color: '#fff', fontSize: '18px', fontWeight: '700', marginBottom: '20px' }}>Account Settings</h2>
-              <div style={{ background: '#0a1628', border: '1px solid #1e3a5f', borderRadius: '14px', padding: '24px' }}>
-                <label style={{ display: 'block', color: '#8baac8', fontSize: '12px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '10px' }}>
+            <div style={{ maxWidth: '500px' }}>
+              <h2 style={{ color: '#fff', fontSize: '20px', fontWeight: '800', marginBottom: '20px', letterSpacing: '-0.3px' }}>Account Settings</h2>
+
+              <div style={{ ...glass(), padding: '26px' }}>
+                <label style={{ display: 'block', color: '#6b85a8', fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: '12px' }}>
                   Display Name
                 </label>
                 <input
@@ -499,24 +677,53 @@ function AgentDashboard({ user, onLogout }) {
                   value={displayName}
                   onChange={e => setDisplayName(e.target.value)}
                   placeholder="Enter your display name"
-                  style={{ ...inputStyle, marginBottom: '16px' }}
+                  style={inputStyle}
                 />
-                <p style={{ color: '#8baac8', fontSize: '12px', marginBottom: '20px' }}>
-                  This is the name shown in your dashboard. Your login username (<strong>{user.username}</strong>) stays the same.
+                <p style={{ color: '#6b85a8', fontSize: '12px', marginBottom: '20px' }}>
+                  This is the name shown in your dashboard. Your login username (<strong style={{ color: '#9bb3d1' }}>{user.username}</strong>) stays the same.
                 </p>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <button
                     onClick={handleSaveDisplayName}
                     disabled={savingName}
                     style={{
-                      padding: '10px 24px', background: '#ff6b2b', color: '#fff',
-                      border: 'none', borderRadius: '8px', cursor: savingName ? 'default' : 'pointer',
-                      fontWeight: '600', fontSize: '14px', opacity: savingName ? 0.7 : 1,
+                      padding: '12px 26px', background: 'linear-gradient(135deg, #ff6b2b, #e0531a)', color: '#fff',
+                      border: 'none', borderRadius: '10px', cursor: savingName ? 'default' : 'pointer',
+                      fontWeight: '700', fontSize: '14px', opacity: savingName ? 0.7 : 1,
+                      boxShadow: '0 4px 16px rgba(255,107,43,0.35)',
                     }}
                   >
                     {savingName ? 'Saving...' : 'Save Changes'}
                   </button>
-                  {nameSaved && <span style={{ color: '#52b788', fontSize: '13px', fontWeight: '600' }}>✓ Saved</span>}
+                  {nameSaved && <span style={{ color: '#52b788', fontSize: '13px', fontWeight: '700' }}>✓ Saved</span>}
+                </div>
+              </div>
+
+              <div style={{ ...glass(), padding: '26px', marginTop: '20px' }}>
+                <label style={{ display: 'block', color: '#6b85a8', fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: '16px' }}>
+                  Change Password
+                </label>
+                <input type="password" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} placeholder="Current password" style={inputStyle} />
+                <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="New password (min. 6 characters)" style={inputStyle} />
+                <input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} placeholder="Confirm new password" style={{ ...inputStyle, marginBottom: '16px' }} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                  <button
+                    onClick={handleChangePassword}
+                    disabled={savingPassword}
+                    style={{
+                      padding: '12px 26px', background: 'linear-gradient(135deg, #ff6b2b, #e0531a)', color: '#fff',
+                      border: 'none', borderRadius: '10px', cursor: savingPassword ? 'default' : 'pointer',
+                      fontWeight: '700', fontSize: '14px', opacity: savingPassword ? 0.7 : 1,
+                      boxShadow: '0 4px 16px rgba(255,107,43,0.35)',
+                    }}
+                  >
+                    {savingPassword ? 'Updating...' : 'Update Password'}
+                  </button>
+                  {passwordMessage && (
+                    <span style={{ color: passwordMessage.type === 'success' ? '#52b788' : '#e07070', fontSize: '13px', fontWeight: '700' }}>
+                      {passwordMessage.text}
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
@@ -526,11 +733,11 @@ function AgentDashboard({ user, onLogout }) {
 
       {/* ── Add/Edit Modal ── */}
       {showForm && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, backdropFilter: 'blur(4px)' }}>
-          <div style={{ background: '#0a1628', border: '1px solid #1e3a5f', borderRadius: '16px', padding: '32px', width: '100%', maxWidth: '460px', maxHeight: '90vh', overflowY: 'auto' }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(5,10,20,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, backdropFilter: 'blur(6px)' }}>
+          <div style={{ ...glass(), padding: '32px', width: '100%', maxWidth: '460px', maxHeight: '90vh', overflowY: 'auto' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-              <h2 style={{ color: '#fff', fontWeight: '700', fontSize: '18px', margin: 0 }}>{editingContact ? 'Edit Lead' : 'New Lead'}</h2>
-              <button onClick={handleCloseForm} style={{ background: 'none', border: 'none', color: '#8baac8', cursor: 'pointer' }}>{icons.close}</button>
+              <h2 style={{ color: '#fff', fontWeight: '800', fontSize: '19px', margin: 0 }}>{editingContact ? 'Edit Lead' : 'New Lead'}</h2>
+              <button onClick={handleCloseForm} style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', color: '#9bb3d1', cursor: 'pointer', padding: '6px' }}>{icons.close}</button>
             </div>
             <form onSubmit={handleSubmit}>
               {[
@@ -551,8 +758,8 @@ function AgentDashboard({ user, onLogout }) {
                 value={formData.notes} onChange={e => setFormData({ ...formData, notes: e.target.value })}
               />
               <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '8px' }}>
-                <button type="button" onClick={handleCloseForm} style={{ padding: '10px 24px', background: '#0f1f35', color: '#8baac8', border: '1px solid #1e3a5f', borderRadius: '8px', cursor: 'pointer', fontWeight: '600' }}>Cancel</button>
-                <button type="submit" style={{ padding: '10px 24px', background: '#ff6b2b', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600' }}>{editingContact ? 'Update' : 'Save Lead'}</button>
+                <button type="button" onClick={handleCloseForm} style={{ padding: '12px 24px', background: 'rgba(255,255,255,0.05)', color: '#9bb3d1', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', cursor: 'pointer', fontWeight: '700' }}>Cancel</button>
+                <button type="submit" style={{ padding: '12px 24px', background: 'linear-gradient(135deg, #ff6b2b, #e0531a)', color: '#fff', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: '700', boxShadow: '0 4px 16px rgba(255,107,43,0.35)' }}>{editingContact ? 'Update' : 'Save Lead'}</button>
               </div>
             </form>
           </div>
@@ -561,14 +768,14 @@ function AgentDashboard({ user, onLogout }) {
 
       {/* ── View Details Modal ── */}
       {viewingContact && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, backdropFilter: 'blur(4px)' }}>
-          <div style={{ background: '#0a1628', border: '1px solid #1e3a5f', borderRadius: '16px', padding: '32px', width: '100%', maxWidth: '580px', maxHeight: '85vh', overflowY: 'auto' }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(5,10,20,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, backdropFilter: 'blur(6px)' }}>
+          <div style={{ ...glass(), padding: '32px', width: '100%', maxWidth: '580px', maxHeight: '85vh', overflowY: 'auto' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
               <div>
-                <h2 style={{ color: '#fff', fontWeight: '700', fontSize: '20px', margin: '0 0 4px' }}>{viewingContact.name}</h2>
-                <p style={{ color: '#8baac8', fontSize: '13px', margin: 0 }}>{viewingContact.company}</p>
+                <h2 style={{ color: '#fff', fontWeight: '800', fontSize: '21px', margin: '0 0 4px' }}>{viewingContact.name}</h2>
+                <p style={{ color: '#6b85a8', fontSize: '13px', margin: 0 }}>{viewingContact.company}</p>
               </div>
-              <button onClick={() => setViewingContact(null)} style={{ background: 'none', border: 'none', color: '#8baac8', cursor: 'pointer' }}>{icons.close}</button>
+              <button onClick={() => setViewingContact(null)} style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', color: '#9bb3d1', cursor: 'pointer', padding: '6px' }}>{icons.close}</button>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px', marginBottom: '24px' }}>
@@ -577,45 +784,100 @@ function AgentDashboard({ user, onLogout }) {
                 { label: 'Email', value: viewingContact.email },
                 { label: 'Stage', value: viewingContact.lead_stage, highlight: true },
               ].map(item => (
-                <div key={item.label} style={{ background: '#0f1f35', borderRadius: '10px', padding: '14px 16px', border: '1px solid #1e3a5f' }}>
-                  <div style={{ color: '#8baac8', fontSize: '11px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>{item.label}</div>
-                  <div style={{ color: item.highlight ? '#ff6b2b' : '#fff', fontWeight: '600', fontSize: '14px' }}>{item.value}</div>
+                <div key={item.label} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '12px', padding: '14px 16px' }}>
+                  <div style={{ color: '#6b85a8', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: '6px' }}>{item.label}</div>
+                  <div style={{ color: item.highlight ? '#ff8c4b' : '#fff', fontWeight: '700', fontSize: '14px' }}>{item.value}</div>
                 </div>
               ))}
             </div>
 
             {viewingContact.notes && (
-              <div style={{ background: '#0f1f35', borderRadius: '10px', padding: '14px 16px', border: '1px solid #1e3a5f', marginBottom: '24px' }}>
-                <div style={{ color: '#8baac8', fontSize: '11px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Notes</div>
+              <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '12px', padding: '14px 16px', marginBottom: '24px' }}>
+                <div style={{ color: '#6b85a8', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: '6px' }}>Notes</div>
                 <div style={{ color: '#fff', fontSize: '14px' }}>{viewingContact.notes}</div>
               </div>
             )}
 
             <button
               onClick={() => makeCall(viewingContact.phone, viewingContact.id)}
-              style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '12px', background: '#ff6b2b', color: '#fff', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: '700', fontSize: '15px', marginBottom: '24px' }}
+              style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '14px', background: 'linear-gradient(135deg, #ff6b2b, #e0531a)', color: '#fff', border: 'none', borderRadius: '12px', cursor: 'pointer', fontWeight: '800', fontSize: '15px', marginBottom: '24px', boxShadow: '0 6px 20px rgba(255,107,43,0.4)' }}
             >
               {icons.call} Call {viewingContact.name}
             </button>
 
-            <h3 style={{ color: '#fff', fontWeight: '700', fontSize: '15px', marginBottom: '14px' }}>Call History</h3>
+            <h3 style={{ color: '#fff', fontWeight: '800', fontSize: '15px', marginBottom: '14px' }}>Call History</h3>
             {viewingContact.activities && viewingContact.activities.length > 0 ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 {viewingContact.activities.map(activity => (
-                  <div key={activity.id} style={{ background: '#0f1f35', borderRadius: '10px', padding: '14px 16px', border: '1px solid #1e3a5f' }}>
+                  <div key={activity.id} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '12px', padding: '14px 16px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-                      <span style={{ color: activity.direction === 'inbound' ? '#ff6b2b' : '#52b788', fontWeight: '600', fontSize: '13px' }}>
+                      <span style={{ color: activity.direction === 'inbound' ? '#ff8c4b' : '#52b788', fontWeight: '700', fontSize: '13px' }}>
                         {activity.direction === 'inbound' ? '📞 Inbound' : '📞 Outbound'}
                       </span>
-                      <span style={{ color: '#8baac8', fontSize: '12px' }}>{new Date(activity.created_at).toLocaleString()}</span>
+                      <span style={{ color: '#6b85a8', fontSize: '12px' }}>{new Date(activity.created_at).toLocaleString()}</span>
                     </div>
                     <div style={{ color: '#fff', fontSize: '13px' }}>Duration: {formatDuration(activity.duration || 0)}</div>
-                    {activity.notes && <div style={{ color: '#8baac8', fontSize: '13px', marginTop: '4px' }}>{activity.notes}</div>}
+                    {activity.notes && <div style={{ color: '#9bb3d1', fontSize: '13px', marginTop: '4px' }}>{activity.notes}</div>}
                   </div>
                 ))}
               </div>
             ) : (
-              <div style={{ color: '#8baac8', textAlign: 'center', padding: '24px', background: '#0f1f35', borderRadius: '10px' }}>No call history yet.</div>
+              <div style={{ color: '#6b85a8', textAlign: 'center', padding: '24px', background: 'rgba(255,255,255,0.03)', borderRadius: '12px' }}>No call history yet.</div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Notes Modal ── */}
+      {notesContact && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(5,10,20,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, backdropFilter: 'blur(6px)' }}>
+          <div style={{ ...glass(), padding: '32px', width: '100%', maxWidth: '520px', maxHeight: '85vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <div>
+                <h2 style={{ color: '#fff', fontWeight: '800', fontSize: '19px', margin: '0 0 4px' }}>Notes — {notesContact.name}</h2>
+                <p style={{ color: '#6b85a8', fontSize: '12px', margin: 0 }}>{notesContact.phone}</p>
+              </div>
+              <button onClick={() => setNotesContact(null)} style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', color: '#9bb3d1', cursor: 'pointer', padding: '6px' }}>{icons.close}</button>
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
+              <textarea
+                placeholder="Write a note about this lead..."
+                rows="2"
+                style={{ ...inputStyle, marginBottom: 0, resize: 'vertical', flex: 1 }}
+                value={newNote}
+                onChange={e => setNewNote(e.target.value)}
+              />
+              <button
+                onClick={handleAddNote}
+                disabled={savingNote || !newNote.trim()}
+                style={{
+                  padding: '0 22px', background: 'linear-gradient(135deg, #ff6b2b, #e0531a)', color: '#fff',
+                  border: 'none', borderRadius: '10px', cursor: savingNote ? 'default' : 'pointer',
+                  fontWeight: '700', fontSize: '14px', opacity: (savingNote || !newNote.trim()) ? 0.6 : 1,
+                  boxShadow: '0 4px 16px rgba(255,107,43,0.35)',
+                }}
+              >
+                Add
+              </button>
+            </div>
+
+            {contactNotes.length === 0 ? (
+              <div style={{ color: '#6b85a8', textAlign: 'center', padding: '24px', background: 'rgba(255,255,255,0.03)', borderRadius: '12px' }}>No notes yet for this lead.</div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {contactNotes.map(note => (
+                  <div key={note.id} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '12px', padding: '14px 16px', display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
+                    <div style={{ flex: 1 }}>
+                      <p style={{ color: '#e2e8f0', fontSize: '14px', marginBottom: '6px', lineHeight: 1.5 }}>{note.content}</p>
+                      <span style={{ color: '#6b85a8', fontSize: '11px' }}>{note.agent_name || note.username} · {new Date(note.created_at).toLocaleString()}</span>
+                    </div>
+                    <button onClick={() => handleDeleteNote(note.id)} style={{ background: 'rgba(224,112,112,0.1)', border: '1px solid rgba(224,112,112,0.2)', borderRadius: '8px', padding: '6px', color: '#e07070', cursor: 'pointer', flexShrink: 0, height: 'fit-content' }}>
+                      {icons.trash}
+                    </button>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
         </div>
