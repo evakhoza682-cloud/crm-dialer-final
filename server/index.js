@@ -73,6 +73,16 @@ db.exec(`CREATE TABLE IF NOT EXISTS scripts (
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 )`);
 
+db.exec(`CREATE TABLE IF NOT EXISTS lead_notes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  contact_id INTEGER NOT NULL,
+  user_id INTEGER,
+  content TEXT NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY(contact_id) REFERENCES contacts(id),
+  FOREIGN KEY(user_id) REFERENCES users(id)
+)`);
+
 // ============ AUTH ============
 app.post('/api/login', async (req, res) => {
   const { username, password } = req.body;
@@ -100,6 +110,31 @@ app.put('/api/users/:id/display-name', (req, res) => {
     db.prepare(`UPDATE users SET full_name = ? WHERE id = ?`).run(full_name.trim(), id);
     const updated = db.prepare('SELECT id, username, role, full_name FROM users WHERE id = ?').get(id);
     res.json({ success: true, user: updated });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Change a user's password (requires current password)
+app.put('/api/users/:id/password', async (req, res) => {
+  const { id } = req.params;
+  const { current_password, new_password } = req.body;
+  if (!current_password || !new_password) {
+    return res.status(400).json({ error: 'Current and new password are required' });
+  }
+  if (new_password.length < 6) {
+    return res.status(400).json({ error: 'New password must be at least 6 characters' });
+  }
+  try {
+    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    const valid = await bcrypt.compare(current_password, user.password);
+    if (!valid) return res.status(401).json({ error: 'Current password is incorrect' });
+
+    const hashed = await bcrypt.hash(new_password, 10);
+    db.prepare('UPDATE users SET password = ? WHERE id = ?').run(hashed, id);
+    res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -180,6 +215,65 @@ app.post('/api/activities', (req, res) => {
     const stmt = db.prepare(`INSERT INTO activities (contact_id, user_id, type, direction, duration, notes, call_sid) VALUES (?,?,?,?,?,?,?)`);
     const info = stmt.run(contact_id, user_id, type, direction, duration, notes, call_sid);
     res.json({ id: info.lastInsertRowid });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ============ LEAD NOTES ============
+// Get all notes for one contact
+app.get('/api/contacts/:id/notes', (req, res) => {
+  const { id } = req.params;
+  try {
+    const rows = db.prepare(`SELECT n.*, u.full_name as agent_name, u.username FROM lead_notes n LEFT JOIN users u ON n.user_id = u.id WHERE n.contact_id = ? ORDER BY n.created_at DESC`).all(id);
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Add a note to a contact
+app.post('/api/contacts/:id/notes', (req, res) => {
+  const { id } = req.params;
+  const { user_id, content } = req.body;
+  if (!content || !content.trim()) return res.status(400).json({ error: 'Note content is required' });
+  try {
+    const stmt = db.prepare(`INSERT INTO lead_notes (contact_id, user_id, content) VALUES (?,?,?)`);
+    const info = stmt.run(id, user_id, content.trim());
+    const note = db.prepare(`SELECT n.*, u.full_name as agent_name, u.username FROM lead_notes n LEFT JOIN users u ON n.user_id = u.id WHERE n.id = ?`).get(info.lastInsertRowid);
+    res.json(note);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get all notes across all leads (for the Notes tab)
+app.get('/api/notes', (req, res) => {
+  const { agentId } = req.query;
+  try {
+    let query = `SELECT n.*, c.name as contact_name, c.phone as contact_phone, u.full_name as agent_name, u.username
+      FROM lead_notes n
+      LEFT JOIN contacts c ON n.contact_id = c.id
+      LEFT JOIN users u ON n.user_id = u.id`;
+    let params = [];
+    if (agentId) {
+      query += ' WHERE c.assigned_to = ?';
+      params.push(agentId);
+    }
+    query += ' ORDER BY n.created_at DESC';
+    const rows = db.prepare(query).all(...params);
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Delete a note
+app.delete('/api/notes/:id', (req, res) => {
+  const { id } = req.params;
+  try {
+    db.prepare('DELETE FROM lead_notes WHERE id = ?').run(id);
+    res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
