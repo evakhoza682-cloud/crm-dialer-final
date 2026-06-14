@@ -87,8 +87,11 @@ function AgentDashboard({ user, onLogout }) {
 
   const leadStages = ['NEW LEADS', 'WARM LEADS', 'HOT LEADS', 'RECYCLED LEADS'];
 
-  const emptyForm = { name: '', company: '', email: '', phone: '', lead_stage: 'NEW LEADS', deal_value: '', notes: '' };
+  const emptyForm = { name: '', company: '', email: '', phone: '', lead_stage: 'NEW LEADS', notes: '' };
   const [formData, setFormData] = useState(emptyForm);
+  const [displayName, setDisplayName] = useState(user.full_name || user.username);
+  const [savingName, setSavingName] = useState(false);
+  const [nameSaved, setNameSaved] = useState(false);
 
   const fetchContacts = useCallback(async () => {
     try {
@@ -159,6 +162,23 @@ function AgentDashboard({ user, onLogout }) {
 
   const formatDuration = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 
+  const handleSaveDisplayName = async () => {
+    if (!displayName.trim()) return;
+    setSavingName(true);
+    setNameSaved(false);
+    try {
+      await axios.put(`${API}/api/users/${user.id}/display-name`, { full_name: displayName });
+      user.full_name = displayName;
+      localStorage.setItem('user', JSON.stringify(user));
+      setNameSaved(true);
+      setTimeout(() => setNameSaved(false), 2500);
+    } catch (err) {
+      alert('Failed to update display name.');
+    } finally {
+      setSavingName(false);
+    }
+  };
+
   const inputStyle = {
     width: '100%', padding: '10px 14px', marginBottom: '14px',
     background: '#0f1f35', border: '1px solid #1e3a5f', borderRadius: '8px',
@@ -175,7 +195,51 @@ function AgentDashboard({ user, onLogout }) {
   ];
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: '#060f1e', fontFamily: "'Inter', -apple-system, sans-serif" }}>
+    <div style={{ display: 'flex', minHeight: '100vh', background: '#060f1e', fontFamily: "'Inter', -apple-system, sans-serif", position: 'relative', overflow: 'hidden' }}>
+      <style>{`
+        @keyframes floatShape {
+          0%   { transform: translate(0, 0) rotate(0deg); }
+          50%  { transform: translate(30px, -40px) rotate(180deg); }
+          100% { transform: translate(0, 0) rotate(360deg); }
+        }
+        @keyframes twinkle {
+          0%, 100% { opacity: 0.15; }
+          50% { opacity: 0.6; }
+        }
+        .bg-shape {
+          position: absolute;
+          border: 1px solid rgba(255,107,43,0.12);
+          pointer-events: none;
+        }
+        .bg-star {
+          position: absolute;
+          background: #4895ef;
+          border-radius: 50%;
+          pointer-events: none;
+          animation: twinkle 4s ease-in-out infinite;
+        }
+      `}</style>
+
+      {/* Animated background shapes */}
+      <div style={{ position: 'fixed', inset: 0, zIndex: 0, overflow: 'hidden' }}>
+        <div className="bg-shape" style={{ width: '180px', height: '180px', top: '8%', left: '15%', borderRadius: '24px', animation: 'floatShape 28s ease-in-out infinite' }} />
+        <div className="bg-shape" style={{ width: '120px', height: '120px', top: '60%', left: '75%', borderRadius: '50%', animation: 'floatShape 22s ease-in-out infinite reverse' }} />
+        <div className="bg-shape" style={{ width: '90px', height: '90px', top: '35%', left: '50%', transform: 'rotate(45deg)', animation: 'floatShape 35s ease-in-out infinite' }} />
+        <div className="bg-shape" style={{ width: '150px', height: '150px', top: '78%', left: '20%', borderRadius: '16px', animation: 'floatShape 26s ease-in-out infinite reverse' }} />
+        <div className="bg-shape" style={{ width: '60px', height: '60px', top: '15%', left: '85%', borderRadius: '50%', animation: 'floatShape 18s ease-in-out infinite' }} />
+        {[...Array(25)].map((_, i) => (
+          <div
+            key={i}
+            className="bg-star"
+            style={{
+              width: `${2 + (i % 3)}px`, height: `${2 + (i % 3)}px`,
+              top: `${(i * 17) % 100}%`, left: `${(i * 37) % 100}%`,
+              animationDelay: `${(i % 5) * 0.8}s`,
+            }}
+          />
+        ))}
+      </div>
+
 
       {/* ── Sidebar ── */}
       <aside style={{
@@ -242,7 +306,7 @@ function AgentDashboard({ user, onLogout }) {
       </aside>
 
       {/* ── Main ── */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative', zIndex: 1 }}>
 
         {/* Top bar */}
         <header style={{
@@ -370,9 +434,6 @@ function AgentDashboard({ user, onLogout }) {
                         <div style={{ marginBottom: '16px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                           <div style={{ color: '#8baac8', fontSize: '13px' }}>📞 {c.phone}</div>
                           <div style={{ color: '#8baac8', fontSize: '13px' }}>✉️ {c.email}</div>
-                          <div style={{ color: '#ff6b2b', fontWeight: '700', fontSize: '15px', marginTop: '4px' }}>
-                            R {Number(c.deal_value || 0).toLocaleString('en-ZA')}
-                          </div>
                         </div>
 
                         {/* Action buttons */}
@@ -427,8 +488,37 @@ function AgentDashboard({ user, onLogout }) {
           )}
 
           {activeNav === 'settings' && (
-            <div style={{ color: '#8baac8', padding: '40px', textAlign: 'center', background: '#0a1628', borderRadius: '12px', border: '1px solid #1e3a5f' }}>
-              Settings panel — contact your admin to change account details.
+            <div style={{ maxWidth: '480px' }}>
+              <h2 style={{ color: '#fff', fontSize: '18px', fontWeight: '700', marginBottom: '20px' }}>Account Settings</h2>
+              <div style={{ background: '#0a1628', border: '1px solid #1e3a5f', borderRadius: '14px', padding: '24px' }}>
+                <label style={{ display: 'block', color: '#8baac8', fontSize: '12px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '10px' }}>
+                  Display Name
+                </label>
+                <input
+                  type="text"
+                  value={displayName}
+                  onChange={e => setDisplayName(e.target.value)}
+                  placeholder="Enter your display name"
+                  style={{ ...inputStyle, marginBottom: '16px' }}
+                />
+                <p style={{ color: '#8baac8', fontSize: '12px', marginBottom: '20px' }}>
+                  This is the name shown in your dashboard. Your login username (<strong>{user.username}</strong>) stays the same.
+                </p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <button
+                    onClick={handleSaveDisplayName}
+                    disabled={savingName}
+                    style={{
+                      padding: '10px 24px', background: '#ff6b2b', color: '#fff',
+                      border: 'none', borderRadius: '8px', cursor: savingName ? 'default' : 'pointer',
+                      fontWeight: '600', fontSize: '14px', opacity: savingName ? 0.7 : 1,
+                    }}
+                  >
+                    {savingName ? 'Saving...' : 'Save Changes'}
+                  </button>
+                  {nameSaved && <span style={{ color: '#52b788', fontSize: '13px', fontWeight: '600' }}>✓ Saved</span>}
+                </div>
+              </div>
             </div>
           )}
         </main>
@@ -457,9 +547,6 @@ function AgentDashboard({ user, onLogout }) {
               <select style={inputStyle} value={formData.lead_stage} onChange={e => setFormData({ ...formData, lead_stage: e.target.value })}>
                 {leadStages.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
-              <input type="number" placeholder="Deal Value (R)" style={inputStyle}
-                value={formData.deal_value} onChange={e => setFormData({ ...formData, deal_value: e.target.value })}
-              />
               <textarea placeholder="Notes" rows="3" style={{ ...inputStyle, resize: 'vertical' }}
                 value={formData.notes} onChange={e => setFormData({ ...formData, notes: e.target.value })}
               />
@@ -484,12 +571,11 @@ function AgentDashboard({ user, onLogout }) {
               <button onClick={() => setViewingContact(null)} style={{ background: 'none', border: 'none', color: '#8baac8', cursor: 'pointer' }}>{icons.close}</button>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px', marginBottom: '24px' }}>
               {[
                 { label: 'Phone', value: viewingContact.phone },
                 { label: 'Email', value: viewingContact.email },
                 { label: 'Stage', value: viewingContact.lead_stage, highlight: true },
-                { label: 'Deal Value', value: `R ${Number(viewingContact.deal_value || 0).toLocaleString('en-ZA')}`, highlight: true },
               ].map(item => (
                 <div key={item.label} style={{ background: '#0f1f35', borderRadius: '10px', padding: '14px 16px', border: '1px solid #1e3a5f' }}>
                   <div style={{ color: '#8baac8', fontSize: '11px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>{item.label}</div>
