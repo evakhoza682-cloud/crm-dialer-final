@@ -310,7 +310,7 @@ function AgentDashboard({ user, onLogout }) {
                     key={stage}
                     onClick={() => setSelectedStage(stage)}
                     style={{
-                      padding: '8px 18px', borderRadius: '8px', border: 'none', cursor: 'pointer',
+                      padding: '8px 18px', borderRadius: '8px', cursor: 'pointer',
                       fontWeight: '600', fontSize: '13px', transition: 'all 0.15s',
                       background: selectedStage === stage ? '#ff6b2b' : '#0a1628',
                       color: selectedStage === stage ? '#fff' : '#8baac8',
