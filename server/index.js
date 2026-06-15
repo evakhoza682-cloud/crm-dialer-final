@@ -115,6 +115,38 @@ app.put('/api/users/:id/display-name', (req, res) => {
   }
 });
 
+// Change a user's login username (requires current password to confirm identity)
+app.put('/api/users/:id/username', async (req, res) => {
+  const { id } = req.params;
+  const { new_username, current_password } = req.body;
+  if (!new_username || !new_username.trim()) {
+    return res.status(400).json({ error: 'New username is required' });
+  }
+  if (!current_password) {
+    return res.status(400).json({ error: 'Current password is required' });
+  }
+  const cleanUsername = new_username.trim();
+  if (!/^[a-zA-Z0-9_.]{3,20}$/.test(cleanUsername)) {
+    return res.status(400).json({ error: 'Username must be 3-20 characters and contain only letters, numbers, dots, or underscores' });
+  }
+  try {
+    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    const valid = await bcrypt.compare(current_password, user.password);
+    if (!valid) return res.status(401).json({ error: 'Current password is incorrect' });
+
+    const existing = db.prepare('SELECT id FROM users WHERE username = ? AND id != ?').get(cleanUsername, id);
+    if (existing) return res.status(409).json({ error: 'That username is already taken' });
+
+    db.prepare('UPDATE users SET username = ? WHERE id = ?').run(cleanUsername, id);
+    const updated = db.prepare('SELECT id, username, role, full_name FROM users WHERE id = ?').get(id);
+    res.json({ success: true, user: updated });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Change a user's password (requires current password)
 app.put('/api/users/:id/password', async (req, res) => {
   const { id } = req.params;
