@@ -115,6 +115,10 @@ function AdminDashboard({ user, onLogout }) {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [savingPassword, setSavingPassword] = useState(false);
   const [passwordMessage, setPasswordMessage] = useState(null);
+  const [newUsername, setNewUsername] = useState(user.username);
+  const [usernamePassword, setUsernamePassword] = useState('');
+  const [savingUsername, setSavingUsername] = useState(false);
+  const [usernameMessage, setUsernameMessage] = useState(null);
 
   const fetchStats = useCallback(async () => {
     try {
@@ -225,6 +229,34 @@ function AdminDashboard({ user, onLogout }) {
       setPasswordMessage({ type: 'error', text: msg });
     } finally {
       setSavingPassword(false);
+    }
+  };
+
+  const handleChangeUsername = async () => {
+    setUsernameMessage(null);
+    if (!newUsername.trim() || !usernamePassword) {
+      setUsernameMessage({ type: 'error', text: 'Please fill in both fields.' });
+      return;
+    }
+    if (newUsername.trim() === user.username) {
+      setUsernameMessage({ type: 'error', text: 'That is already your current username.' });
+      return;
+    }
+    setSavingUsername(true);
+    try {
+      await axios.put(`${API}/api/users/${user.id}/username`, {
+        new_username: newUsername.trim(),
+        current_password: usernamePassword,
+      });
+      user.username = newUsername.trim();
+      localStorage.setItem('user', JSON.stringify(user));
+      setUsernameMessage({ type: 'success', text: '✓ Username updated. Use your new username next time you log in.' });
+      setUsernamePassword('');
+    } catch (err) {
+      const msg = err.response?.data?.error || 'Failed to update username.';
+      setUsernameMessage({ type: 'error', text: msg });
+    } finally {
+      setSavingUsername(false);
     }
   };
 
@@ -636,7 +668,7 @@ function AdminDashboard({ user, onLogout }) {
                   style={inputStyle}
                 />
                 <p style={{ color: '#6b85a8', fontSize: '12px', marginBottom: '20px' }}>
-                  This is the name shown in your dashboard. Your login username (<strong style={{ color: '#9bb3d1' }}>{user.username}</strong>) stays the same.
+                  This is the name shown in your dashboard. It is separate from your login username (<strong style={{ color: '#9bb3d1' }}>{user.username}</strong>), which you can change below.
                 </p>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <button
@@ -652,6 +684,48 @@ function AdminDashboard({ user, onLogout }) {
                     {savingName ? 'Saving...' : 'Save Changes'}
                   </button>
                   {nameSaved && <span style={{ color: '#52b788', fontSize: '13px', fontWeight: '700' }}>✓ Saved</span>}
+                </div>
+              </div>
+
+              <div style={{ ...glass(), padding: '26px', marginTop: '20px' }}>
+                <label style={{ display: 'block', color: '#6b85a8', fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: '12px' }}>
+                  Change Username
+                </label>
+                <input
+                  type="text"
+                  value={newUsername}
+                  onChange={e => setNewUsername(e.target.value)}
+                  placeholder="New username"
+                  style={inputStyle}
+                />
+                <input
+                  type="password"
+                  value={usernamePassword}
+                  onChange={e => setUsernamePassword(e.target.value)}
+                  placeholder="Current password (to confirm)"
+                  style={inputStyle}
+                />
+                <p style={{ color: '#6b85a8', fontSize: '12px', marginBottom: '20px' }}>
+                  This is the username you use to log in. 3-20 characters, letters/numbers/dots/underscores only. After changing it, use the new username next time you log in.
+                </p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                  <button
+                    onClick={handleChangeUsername}
+                    disabled={savingUsername}
+                    style={{
+                      padding: '12px 26px', background: 'linear-gradient(135deg, #ff6b2b, #e0531a)', color: '#fff',
+                      border: 'none', borderRadius: '10px', cursor: savingUsername ? 'default' : 'pointer',
+                      fontWeight: '700', fontSize: '14px', opacity: savingUsername ? 0.7 : 1,
+                      boxShadow: '0 4px 16px rgba(255,107,43,0.35)',
+                    }}
+                  >
+                    {savingUsername ? 'Updating...' : 'Update Username'}
+                  </button>
+                  {usernameMessage && (
+                    <span style={{ color: usernameMessage.type === 'success' ? '#52b788' : '#e07070', fontSize: '13px', fontWeight: '700' }}>
+                      {usernameMessage.text}
+                    </span>
+                  )}
                 </div>
               </div>
 
