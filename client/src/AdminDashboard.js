@@ -383,7 +383,7 @@ function AdminDashboard({ user, onLogout }) {
           </div>
           {!sidebarCollapsed && (
             <div>
-              <div style={{ color: '#fff', fontWeight: '700', fontSize: '13px', lineHeight: 1.2 }}>Stritgrad Market</div>
+              <div style={{ color: '#fff', fontWeight: '700', fontSize: '13px', lineHeight: 1.2 }}>Stritgrad Contact</div>
               <div style={{
                 background: 'linear-gradient(90deg, #ff6b2b, #4895ef)',
                 WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
@@ -457,7 +457,7 @@ function AdminDashboard({ user, onLogout }) {
                 WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
                 fontSize: '21px', fontWeight: '800', margin: 0, letterSpacing: '-0.3px',
               }}>Admin Dashboard</h1>
-              <p style={{ color: '#6b85a8', fontSize: '12px', margin: 0, fontWeight: '500' }}>Stritgrad Market Solutions · Call Center CRM</p>
+              <p style={{ color: '#6b85a8', fontSize: '12px', margin: 0, fontWeight: '500' }}>Stritgrad Contact Centre · Call Center CRM</p>
             </div>
           </div>
           {activeNav === 'scripts' && (
