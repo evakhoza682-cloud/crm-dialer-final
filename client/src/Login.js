@@ -42,7 +42,7 @@ function Login({ onLogin }) {
       <div className="w-full max-w-md p-8" style={{ background: '#0d1b2a', border: '1px solid #1b2a4a' }}>
         <div className="text-center mb-8">
           <img src="/logo.png" alt="Stritgrad Market Solutions" className="h-16 mx-auto mb-4" />
-          <h1 className="text-3xl font-bold" style={{ color: '#ff6b2b' }}>Stritgrad Market Solutions</h1>
+          <h1 className="text-3xl font-bold" style={{ color: '#ff6b2b' }}>Stritgrad Contact Centre</h1>
           <p className="text-gray-400 mt-2">CRM System</p>
         </div>
         {error && <div className="mb-4 p-3 text-center" style={{ background: 'rgba(255,107,43,0.1)', border: '1px solid #ff6b2b', color: '#ff6b2b' }}>⚠️ {error}</div>}
