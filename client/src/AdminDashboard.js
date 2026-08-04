@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 
 const API = process.env.REACT_APP_API_URL;
@@ -94,6 +94,156 @@ const glass = (extra = {}) => ({
   boxShadow: '0 8px 32px rgba(0,0,0,0.35)',
   ...extra,
 });
+
+// ─── ANIMATED GEOMETRIC BACKGROUND CANVAS ────────────────────────────────────
+function GeoCanvas() {
+  const canvasRef = useRef(null);
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    let W = canvas.width = window.innerWidth;
+    let H = canvas.height = window.innerHeight;
+    let animId;
+
+    const onResize = () => { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; };
+    window.addEventListener('resize', onResize);
+
+    // Colour palette — orange, blue, green, purple to match the CRM
+    const COLS = [
+      'rgba(255,107,43,VAL)',  // orange
+      'rgba(72,149,239,VAL)',  // blue
+      'rgba(82,183,136,VAL)', // green
+      'rgba(224,112,112,VAL)',// red
+      'rgba(167,139,250,VAL)',// purple
+      'rgba(240,180,41,VAL)', // gold
+    ];
+    const rc = (a) => COLS[Math.floor(Math.random() * COLS.length)].replace('VAL', a);
+
+    // Geometric shapes
+    const shapes = [];
+    for (let i = 0; i < 18; i++) {
+      const sides = [3, 4, 6][Math.floor(Math.random() * 3)];
+      shapes.push({
+        x: Math.random() * W, y: Math.random() * H,
+        r: 30 + Math.random() * 80,
+        sides,
+        rot: Math.random() * Math.PI * 2,
+        rotSpeed: (Math.random() - 0.5) * 0.006,
+        vx: (Math.random() - 0.5) * 0.25,
+        vy: (Math.random() - 0.5) * 0.25,
+        stroke: rc(0.45 + Math.random() * 0.4),
+        fill: rc(0.06 + Math.random() * 0.1),
+        lw: 1 + Math.random() * 1.2,
+        wire: Math.random() > 0.4,
+      });
+    }
+
+    // Particles
+    const particles = [];
+    for (let i = 0; i < 70; i++) {
+      particles.push({
+        x: Math.random() * W, y: Math.random() * H,
+        r: 1.2 + Math.random() * 2.5,
+        col: rc(0.5 + Math.random() * 0.4),
+        vx: (Math.random() - 0.5) * 0.35,
+        vy: (Math.random() - 0.5) * 0.35,
+        pulse: Math.random() * Math.PI * 2,
+        ps: 0.018 + Math.random() * 0.03,
+      });
+    }
+
+    function polygon(cx, cy, r, sides, rot) {
+      ctx.beginPath();
+      for (let i = 0; i < sides; i++) {
+        const a = rot + (i / sides) * Math.PI * 2;
+        const px = cx + r * Math.cos(a);
+        const py = cy + r * Math.sin(a);
+        i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+    }
+
+    function connections() {
+      for (let i = 0; i < particles.length; i++) {
+        for (let j = i + 1; j < particles.length; j++) {
+          const dx = particles[i].x - particles[j].x;
+          const dy = particles[i].y - particles[j].y;
+          const d = Math.sqrt(dx * dx + dy * dy);
+          if (d < 120) {
+            ctx.beginPath();
+            ctx.moveTo(particles[i].x, particles[i].y);
+            ctx.lineTo(particles[j].x, particles[j].y);
+            ctx.strokeStyle = `rgba(255,107,43,${0.1 * (1 - d / 120)})`;
+            ctx.lineWidth = 0.5;
+            ctx.stroke();
+          }
+        }
+      }
+    }
+
+    let t = 0;
+    function draw() {
+      animId = requestAnimationFrame(draw);
+      ctx.clearRect(0, 0, W, H);
+      t++;
+
+      // Draw shapes
+      shapes.forEach(s => {
+        s.rot += s.rotSpeed;
+        s.x += s.vx; s.y += s.vy;
+        if (s.x > W + 100) s.x = -100; if (s.x < -100) s.x = W + 100;
+        if (s.y > H + 100) s.y = -100; if (s.y < -100) s.y = H + 100;
+        ctx.save();
+        polygon(s.x, s.y, s.r, s.sides, s.rot);
+        if (!s.wire) { ctx.fillStyle = s.fill; ctx.fill(); }
+        ctx.strokeStyle = s.stroke;
+        ctx.lineWidth = s.lw;
+        ctx.stroke();
+        ctx.restore();
+      });
+
+      // Connection lines
+      connections();
+
+      // Particles
+      particles.forEach(p => {
+        p.x += p.vx; p.y += p.vy;
+        if (p.x > W) p.x = 0; if (p.x < 0) p.x = W;
+        if (p.y > H) p.y = 0; if (p.y < 0) p.y = H;
+        p.pulse += p.ps;
+        const alpha = 0.4 + 0.5 * Math.sin(p.pulse);
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fillStyle = p.col.replace(/[\d.]+\)$/, `${alpha})`);
+        ctx.fill();
+      });
+
+      // Scan line
+      const scanY = ((t * 0.8) % (H + 60)) - 30;
+      const g = ctx.createLinearGradient(0, scanY - 1, 0, scanY + 1);
+      g.addColorStop(0, 'transparent');
+      g.addColorStop(0.5, 'rgba(255,107,43,0.04)');
+      g.addColorStop(1, 'transparent');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, scanY, W, 3);
+
+      // Grid
+      ctx.strokeStyle = 'rgba(255,107,43,0.025)';
+      ctx.lineWidth = 1;
+      for (let x = 0; x < W; x += 60) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+      for (let y = 0; y < H; y += 60) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+    }
+
+    draw();
+    return () => { cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); };
+  }, []);
+
+  return (
+    <canvas ref={canvasRef} style={{ position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none' }} />
+  );
+}
+
 
 function AdminDashboard({ user, onLogout }) {
   const [stats, setStats] = useState(null);
@@ -366,7 +516,7 @@ function AdminDashboard({ user, onLogout }) {
   ];
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: '#070d1a', fontFamily: "'Inter', -apple-system, sans-serif", position: 'relative', overflow: 'hidden' }}>
+    <div style={{ display: 'flex', minHeight: '100vh', position: 'relative', overflow: 'hidden', background: '#070d1a', fontFamily: "'Inter', -apple-system, sans-serif", position: 'relative', overflow: 'hidden' }}>
       <GlobalStyles />
       <AnimatedBackground />
 
