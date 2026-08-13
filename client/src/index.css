@@ -2,68 +2,123 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-  background: #0a1628;
-  font-family: 'Inter', 'Segoe UI', sans-serif;
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+/* ── ROOT ────────────────────────────────────────────────────────────────── */
+:root {
+  --navy:    #0a1628;
+  --navy2:   #0d1b2a;
+  --navy3:   #111f35;
+  --blue:    #1a5fb4;
+  --blue2:   #1e6fc2;
+  --blue3:   #2478d4;
+  --orange:  #ff6b2b;
+  --orange2: #e55a1a;
+  --green:   #22c55e;
+  --red:     #ef4444;
+  --gold:    #f0b429;
+  --purple:  #8b5cf6;
+  --text:    #e2eaf8;
+  --sub:     #8faac8;
+  --muted:   #4a6080;
+  --border:  rgba(255,255,255,0.07);
+  --panel:   rgba(13,27,42,0.85);
 }
+
+/* ── BASE ────────────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--navy);
+  font-family: 'Inter', 'Segoe UI', sans-serif;
+  color: var(--text);
+  overflow-x: hidden;
+}
+
+/* ── ANIMATED GEOMETRIC LINE BACKGROUND ─────────────────────────────────── */
+#geo-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* Static grid overlay */
 body::before {
   content: '';
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-image: 
-    repeating-linear-gradient(45deg, rgba(255, 107, 43, 0.02) 0px, rgba(255, 107, 43, 0.02) 1px, transparent 1px, transparent 12px),
-    repeating-linear-gradient(135deg, rgba(255, 107, 43, 0.02) 0px, rgba(255, 107, 43, 0.02) 1px, transparent 1px, transparent 12px);
+  inset: 0;
+  z-index: 1;
   pointer-events: none;
-  z-index: 0;
+  background-image:
+    linear-gradient(rgba(26,95,180,0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(26,95,180,0.06) 1px, transparent 1px),
+    linear-gradient(rgba(255,107,43,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,107,43,0.03) 1px, transparent 1px);
+  background-size: 80px 80px, 80px 80px, 20px 20px, 20px 20px;
 }
-.bg-white, .bg-gray-100 {
-  background: #0d1b2a !important;
+
+/* Glow orbs */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 50% 45% at 15% 20%, rgba(26,95,180,0.18) 0%, transparent 65%),
+    radial-gradient(ellipse 40% 50% at 88% 78%, rgba(255,107,43,0.14) 0%, transparent 65%),
+    radial-gradient(ellipse 35% 35% at 60% 8%,  rgba(139,92,246,0.1) 0%, transparent 60%);
+  animation: nebulaShift 20s ease-in-out infinite alternate;
 }
-.card, .shadow, .shadow-lg {
-  background: #0d1b2a !important;
-  border: 1px solid #1b2a4a;
-  border-radius: 0px !important;
-  box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+
+@keyframes nebulaShift {
+  0%   { opacity: 0.7; transform: scale(1); }
+  100% { opacity: 1;   transform: scale(1.04); }
 }
-button, .rounded-lg, .rounded, .rounded-xl {
-  border-radius: 0px !important;
-}
-.btn-orange, .bg-blue-600 {
-  background: #ff6b2b !important;
-  border: none !important;
-}
-.btn-orange:hover, .bg-blue-600:hover {
-  background: #e55a1a !important;
-  box-shadow: 0 0 12px rgba(255,107,43,0.5);
-}
-.text-orange, .text-blue-600 {
-  color: #ff6b2b !important;
-}
+
+/* All content above background */
+#root { position: relative; z-index: 2; }
+
+/* ── ANIMATIONS ──────────────────────────────────────────────────────────── */
+@keyframes pulse       { 0%,100%{opacity:1} 50%{opacity:0.25} }
+@keyframes slideUp     { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:translateY(0)} }
+@keyframes fadeIn      { from{opacity:0} to{opacity:1} }
+@keyframes floatOrb    { 0%{transform:translate(0,0)} 50%{transform:translate(40px,-30px)} 100%{transform:translate(0,0)} }
+@keyframes scanLine    { 0%{top:-5%} 100%{top:105%} }
+@keyframes borderGlow  { 0%,100%{box-shadow:0 0 8px rgba(255,107,43,0.3)} 50%{box-shadow:0 0 24px rgba(255,107,43,0.6)} }
+@keyframes countUp     { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+
+/* ── SCROLLBAR ───────────────────────────────────────────────────────────── */
+::-webkit-scrollbar       { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--navy); }
+::-webkit-scrollbar-thumb { background: var(--blue); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--blue2); }
+
+/* ── INPUTS ──────────────────────────────────────────────────────────────── */
 input, select, textarea {
-  background: #0a1628;
-  border: 1px solid #1b2a4a;
-  color: #fff;
-  border-radius: 0px;
-  padding: 10px 12px;
+  background: rgba(8,14,28,0.8);
+  border: 1px solid rgba(26,95,180,0.3);
+  color: var(--text);
+  border-radius: 10px;
+  padding: 10px 13px;
+  font-family: inherit;
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  width: 100%;
+  box-sizing: border-box;
 }
 input:focus, select:focus, textarea:focus {
-  border-color: #ff6b2b;
-  box-shadow: 0 0 5px rgba(255,107,43,0.3);
-  outline: none;
+  border-color: var(--orange);
+  box-shadow: 0 0 0 3px rgba(255,107,43,0.15);
 }
-/* Lead stage badges */
-.badge-new { background: #1b4d3e; color: white; }
-.badge-warm { background: #2a3a7a; color: white; }
-.badge-hot { background: #ff6b2b; color: white; }
-.badge-recycled { background: #7a1f1f; color: white; }
-/* Scrollbar */
-::-webkit-scrollbar { width: 8px; }
-::-webkit-scrollbar-track { background: #0a1628; }
-::-webkit-scrollbar-thumb { background: #ff6b2b; border-radius: 0px; }
-/* Hover glow for cards */
-.hover\:shadow-glow:hover {
-  box-shadow: 0 0 15px rgba(255,107,43,0.3);
-}
+input::placeholder, textarea::placeholder { color: rgba(143,170,200,0.35); }
+select option { background: #0d1b2a; color: var(--text); }
+
+/* ── LEAD STAGE BADGES ───────────────────────────────────────────────────── */
+.badge-new      { background: rgba(34,197,94,0.15);  color: #4ade80; border: 1px solid rgba(34,197,94,0.3);  padding: 3px 10px; border-radius: 20px; font-size: 10px; font-weight: 700; }
+.badge-warm     { background: rgba(26,95,180,0.2);   color: #60a5fa; border: 1px solid rgba(26,95,180,0.4);  padding: 3px 10px; border-radius: 20px; font-size: 10px; font-weight: 700; }
+.badge-hot      { background: rgba(255,107,43,0.18); color: #ff8c4b; border: 1px solid rgba(255,107,43,0.4); padding: 3px 10px; border-radius: 20px; font-size: 10px; font-weight: 700; }
+.badge-recycled { background: rgba(239,68,68,0.15);  color: #f87171; border: 1px solid rgba(239,68,68,0.3);  padding: 3px 10px; border-radius: 20px; font-size: 10px; font-weight: 700; }
