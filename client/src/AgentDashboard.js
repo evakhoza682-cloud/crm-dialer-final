@@ -9,7 +9,7 @@ const BLUE   = '#1a5fb4';   // deep electric blue — borders, accents
 const BLUE2  = '#1e6fc2';   // slightly lighter blue — hover states
 const ORANGE = '#ff6b2b';   // PRIMARY action colour — buttons only
 const ORANGE2= '#e55a1a';   // orange hover
-const GREEN  = ORANGE;   // success states only (appointments booked)
+const GREEN  = '#22c55e';  // used only for success indicators
 const RED    = '#dc2626';   // danger / DNC only
 const GOLD   = '#d4a017';   // points / leaderboard only — muted gold
 const TEXT   = '#dce8f5';   // primary text — blue-white, not bright white
@@ -482,7 +482,7 @@ function CSVImporter({ onClose, onDone, user }) {
             <div style={{color:TEXT, fontWeight:'800', fontSize:'24px', marginBottom:'8px'}}>{done} Leads Imported!</div>
             {skipped > 0 && <div style={{color:MUTED, fontSize:'13px', marginBottom:'8px'}}>{skipped} rows skipped (missing name or phone)</div>}
             <div style={{color:SUB, marginBottom:'28px', fontSize:'14px'}}>Your leads are live in the pipeline. Start dialling!</div>
-            <Btn label="✅ Go to My Leads" onClick={onClose} color={GREEN} full />
+            <Btn label="✅ Go to My Leads" onClick={onClose} color={GREEN} />
           </div>
         )}
       </div>
@@ -538,8 +538,8 @@ function CallRecorder({ contact, user, onClose, onLogged }) {
     setSaving(true);
     const d = DISPOSITIONS.find(x => x.id === disp);
     try {
-      await axios.post(`${API}/api/activities`, {
-        contact_id: contact.id, user_id: user.id,
+      await axios.post(`${API}/api/contacts/${contact.id}/activities`, {
+        user_id: user.id,
         type:'call', direction:'outbound',
         notes: `[${d.emoji} ${d.label}] ${notes}`.trim(),
         duration: secs,
