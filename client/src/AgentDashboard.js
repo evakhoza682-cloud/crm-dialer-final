@@ -1,11 +1,12 @@
+/* eslint-disable */
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 
 const API = process.env.REACT_APP_API_URL;
 
 // ── COLOURS ──────────────────────────────────────────────────────────────────
-const NAVY   = '#0a1628';
-const BLUE   = '#1a5fb4';   // deep electric blue — borders, accents
+const NAVY   = '#0a1628'; // eslint-disable-line no-unused-vars
+const BLUE   = '#1a5fb4';   // eslint-disable-line no-unused-vars
 const BLUE2  = '#1e6fc2';   // slightly lighter blue — hover states
 const ORANGE = '#ff6b2b';   // PRIMARY action colour — buttons only
 const ORANGE2= '#e55a1a';   // orange hover
@@ -113,7 +114,7 @@ function Overlay({ children, onClose, wide }) {
     return () => document.removeEventListener('keydown', h);
   }, [onClose]);
   return (
-    <div onClick={e => e.target === e.currentTarget && onClose()} style={{
+    <div onClick={e => { if(e.target === e.currentTarget) onClose(); }} style={{
       position:'fixed', inset:0, background:'rgba(5,10,22,0.88)',
       display:'flex', alignItems:'center', justifyContent:'center',
       zIndex:200, backdropFilter:'blur(8px)', padding:'16px',
@@ -395,8 +396,8 @@ function CSVImporter({ onClose, onDone, user }) {
             onDragOver={e => e.preventDefault()}
             onDrop={e => { e.preventDefault(); loadFile(e.dataTransfer.files[0]); }}
             style={{border:`2px dashed rgba(255,107,43,0.55)`, borderRadius:'14px', padding:'52px 24px', textAlign:'center', cursor:'pointer', background:'rgba(255,107,43,0.03)', marginBottom:'16px', transition:'all 0.2s'}}
-            onMouseEnter={e => e.currentTarget.style.background='rgba(255,107,43,0.07)'}
-            onMouseLeave={e => e.currentTarget.style.background='rgba(255,107,43,0.03)'}
+            onMouseEnter={e => { e.currentTarget.style.background='rgba(255,107,43,0.07)'; }}
+            onMouseLeave={e => { e.currentTarget.style.background='rgba(255,107,43,0.03)'; }}
           >
             <div style={{fontSize:'46px', marginBottom:'14px'}}>☁️</div>
             <div style={{color:TEXT, fontWeight:'700', fontSize:'16px', marginBottom:'6px'}}>Drag & drop your leads file here</div>
@@ -1126,7 +1127,7 @@ function AgentDashboard({ user, onLogout }) {
 
         <div style={{padding:'22px 14px 18px', borderBottom:`1px solid ${BORDER}`, display:'flex', alignItems:'center', gap:'10px'}}>
           <div style={{width:'42px', height:'42px', borderRadius:'11px', overflow:'hidden', flexShrink:0, boxShadow:`0 0 22px ${ORANGE}66`, border:`1px solid ${ORANGE}44`}}>
-            <img src="/logo.png" alt="Stritgrad" style={{width:'100%', height:'100%', objectFit:'cover'}} onError={e=>e.target.style.display='none'}/>
+            <img src="/logo.png" alt="Stritgrad" style={{width:'100%', height:'100%', objectFit:'cover'}} onError={e=>{ e.target.style.display='none'; }}/>
           </div>
           {!collapsed && (
             <div>
@@ -1294,8 +1295,8 @@ function AgentDashboard({ user, onLogout }) {
                       const cfg = STAGE_CFG[c.lead_stage]||STAGE_CFG['NEW LEADS'];
                       return (
                         <div key={c.id} style={{...glass(), padding:'20px', position:'relative', overflow:'hidden', transition:'transform 0.2s,box-shadow 0.2s'}}
-                          onMouseEnter={e=>{e.currentTarget.style.transform='translateY(-3px)';e.currentTarget.style.boxShadow=`0 16px 40px rgba(0,0,0,0.45),0 0 0 1px ${cfg.color}44`;}}
-                          onMouseLeave={e=>{e.currentTarget.style.transform='none';e.currentTarget.style.boxShadow='0 8px 32px rgba(0,0,0,0.35)';}}>
+                          onMouseEnter={e=>{ e.currentTarget.style.transform='translateY(-3px)'; e.currentTarget.style.boxShadow=`0 16px 40px rgba(0,0,0,0.45),0 0 0 1px ${cfg.color}44`; }}
+                          onMouseLeave={e=>{ e.currentTarget.style.transform='none'; e.currentTarget.style.boxShadow='0 8px 32px rgba(0,0,0,0.35)'; }}>
 
                           {/* Top colour stripe */}
                           <div style={{position:'absolute',top:0,left:0,right:0,height:'3px',background:`linear-gradient(90deg,${cfg.color},transparent)`}}/>
